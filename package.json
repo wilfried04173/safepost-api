@@ -1,9 +1,9 @@
 {
-  "name": "safepost-server",
+  "name": "safeposte-server",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "SafePost delivery agency - REST API",
+  "description": "SafePoste delivery agency - REST API",
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",

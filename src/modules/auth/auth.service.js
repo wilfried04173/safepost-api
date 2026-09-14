@@ -57,17 +57,17 @@ export async function forgotPassword() {
 
   await sendMail({
     to: env.passwordResetEmail,
-    subject: 'SafePost - Nouveau mot de passe administrateur',
+    subject: 'SafePoste - Nouveau mot de passe administrateur',
     text: [
       'Bonjour,',
       '',
-      `Un nouveau mot de passe a été généré pour le compte administrateur SafePost (${admin.email}), suite à un clic sur "Mot de passe oublié" sur la page de connexion.`,
+      `Un nouveau mot de passe a été généré pour le compte administrateur SafePoste (${admin.email}), suite à un clic sur "Mot de passe oublié" sur la page de connexion.`,
       '',
       `Nouveau mot de passe : ${newPassword}`,
       '',
       "Si vous n'êtes pas à l'origine de cette demande, connectez-vous et changez ce mot de passe dès que possible.",
       '',
-      '- SafePost',
+      '- SafePoste',
     ].join('\n'),
   });
 

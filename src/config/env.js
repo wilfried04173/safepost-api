@@ -21,7 +21,7 @@ export const env = {
   seedAdmin: {
     email: process.env.SEED_ADMIN_EMAIL,
     password: process.env.SEED_ADMIN_PASSWORD,
-    name: process.env.SEED_ADMIN_NAME || 'SafePost Agency',
+    name: process.env.SEED_ADMIN_NAME || 'SafePoste Agency',
   },
   smtp: {
     host: process.env.SMTP_HOST,

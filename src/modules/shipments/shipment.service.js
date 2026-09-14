@@ -44,7 +44,7 @@ export async function createShipment(payload, adminId) {
       {
         status: 'registered',
         location: payload.sender.city,
-        note: 'Colis enregistré par SafePost.',
+        note: 'Colis enregistré par SafePoste.',
         occurredAt: new Date(),
       },
     ],
@@ -144,7 +144,7 @@ export async function pauseShipment(id, note) {
 
   shipment.progression.enPause = true;
   shipment.progression.pauseeLe = new Date();
-  pushEvent(shipment, 'on_hold', note || 'Livraison mise en pause par SafePost.');
+  pushEvent(shipment, 'on_hold', note || 'Livraison mise en pause par SafePoste.');
 
   await shipment.save();
   return shipment;
@@ -183,7 +183,7 @@ export async function cancelShipment(id, note) {
   if (shipment.cancelledAt) throw ApiError.badRequest('Ce colis est déjà annulé');
 
   shipment.cancelledAt = new Date();
-  pushEvent(shipment, 'cancelled', note || 'Expédition annulée par SafePost.');
+  pushEvent(shipment, 'cancelled', note || 'Expédition annulée par SafePoste.');
 
   await shipment.save();
   return shipment;

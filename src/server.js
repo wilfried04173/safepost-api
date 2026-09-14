@@ -8,7 +8,7 @@ async function start() {
     const app = createApp();
     const server = app.listen(env.port, () => {
       console.log(
-        `[api] SafePost API running on http://localhost:${env.port} (${env.nodeEnv})`,
+        `[api] SafePoste API running on http://localhost:${env.port} (${env.nodeEnv})`,
       );
     });
 

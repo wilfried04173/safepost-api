@@ -32,7 +32,7 @@ export function createApp() {
   app.get("/api/health", (_req, res) => {
     res.json({
       success: true,
-      service: "safepost-api",
+      service: "safeposte-api",
       uptime: process.uptime(),
     });
   });

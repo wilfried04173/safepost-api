@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ALL_STATUSES } from './shipment.constants.js';
+import { ALL_STATUSES, SERVICE_TYPES } from './shipment.constants.js';
 
 // Les formulaires envoient une chaîne vide pour les champs non remplis :
 // on les supprime plutôt que de stocker "" en base.
@@ -42,14 +42,16 @@ const parcel = z.object({
 });
 
 /**
- * Création : ni service ni statut initial ne sont demandés.
- * Le service est « standard » par défaut et le statut se déduit des deux dates.
+ * Création : le statut initial ne se demande jamais, il se déduit des deux
+ * dates. Le service, lui, est modifiable - « standard » reste la valeur par
+ * défaut du modèle si rien n'est envoyé.
  */
 export const createShipmentSchema = z
   .object({
     sender: party,
     recipient: party,
     parcel,
+    service: z.enum(SERVICE_TYPES).optional(),
     demarreLe: z.coerce.date().optional(),
     arriveePrevueLe: z.coerce.date(),
     internalNotes: optionalString,

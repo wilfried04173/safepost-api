@@ -1,12 +1,11 @@
 import { ApiError } from '../../shared/ApiError.js';
 import { asyncHandler } from '../../shared/asyncHandler.js';
 import { Admin } from './admin.model.js';
-import { verifyToken } from './auth.service.js';
+import { AUTH_COOKIE, verifyToken } from './auth.service.js';
 
-/** Rejette la requête sauf si elle porte un jeton admin valide. */
+/** Rejette la requête sauf si elle porte un jeton admin valide, lu depuis le cookie HttpOnly. */
 export const requireAdmin = asyncHandler(async (req, _res, next) => {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const token = req.cookies?.[AUTH_COOKIE];
   if (!token) throw ApiError.unauthorized('Authentification requise');
 
   const payload = verifyToken(token);

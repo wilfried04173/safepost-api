@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { validate } from '../../shared/validate.js';
-import { forgotPasswordController, loginController, meController } from './auth.controller.js';
+import {
+  forgotPasswordController,
+  loginController,
+  logoutController,
+  meController,
+} from './auth.controller.js';
 import { requireAdmin } from './auth.middleware.js';
 import { loginSchema } from './auth.validation.js';
 
@@ -29,3 +34,4 @@ export const authRouter = Router();
 authRouter.post('/login', loginLimiter, validate(loginSchema), loginController);
 authRouter.post('/forgot-password', forgotPasswordLimiter, forgotPasswordController);
 authRouter.get('/me', requireAdmin, meController);
+authRouter.post('/logout', logoutController);

@@ -1,3 +1,4 @@
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
@@ -27,6 +28,7 @@ export function createApp() {
   );
   app.use(express.json({ limit: "100kb" }));
   app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
   if (!env.isProd) app.use(morgan("dev"));
 
   app.get("/api/health", (_req, res) => {

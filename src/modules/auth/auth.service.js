@@ -5,6 +5,8 @@ import { ApiError } from '../../shared/ApiError.js';
 import { sendMail } from '../../shared/mailer.js';
 import { Admin } from './admin.model.js';
 
+export const AUTH_COOKIE = 'token';
+
 /** Chaîne aléatoire lisible, largement au-dessus du minimum de 8 caractères du modèle. */
 function generatePassword() {
   return crypto.randomBytes(12).toString('base64url'); // ~16 caractères, alphanumérique + -_

@@ -13,6 +13,7 @@ import {
   statsController,
   trackController,
   updateScheduleController,
+  updateShipmentController,
 } from './shipment.controller.js';
 import {
   agencyActionSchema,
@@ -20,6 +21,7 @@ import {
   listShipmentsSchema,
   scheduleSchema,
   trackingIdSchema,
+  updateShipmentSchema,
 } from './shipment.validation.js';
 
 /** Ouvert aux visiteurs : GET /api/tracking/:trackingId */
@@ -35,7 +37,11 @@ shipmentRouter
   .route('/')
   .get(validate(listShipmentsSchema, 'query'), listShipmentsController)
   .post(validate(createShipmentSchema), createShipmentController);
-shipmentRouter.route('/:id').get(getShipmentController).delete(deleteShipmentController);
+shipmentRouter
+  .route('/:id')
+  .get(getShipmentController)
+  .patch(validate(updateShipmentSchema), updateShipmentController)
+  .delete(deleteShipmentController);
 
 // Les quatre seules actions manuelles : le reste de la progression suit l'horloge.
 shipmentRouter.patch('/:id/schedule', validate(scheduleSchema), updateScheduleController);

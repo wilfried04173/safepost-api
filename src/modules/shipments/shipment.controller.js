@@ -16,6 +16,12 @@ export const getShipmentController = asyncHandler(async (req, res) => {
   res.json({ success: true, data: shipment });
 });
 
+/** Corrige les informations d'une expédition en cours (parties, colis, service, notes). */
+export const updateShipmentController = asyncHandler(async (req, res) => {
+  const shipment = await service.updateShipment(req.params.id, req.body);
+  res.json({ success: true, data: shipment });
+});
+
 /** Corrige la date de départ et/ou l'arrivée prévue. */
 export const updateScheduleController = asyncHandler(async (req, res) => {
   const shipment = await service.updateSchedule(req.params.id, req.body);

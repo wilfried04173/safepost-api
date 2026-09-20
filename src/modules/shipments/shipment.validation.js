@@ -61,6 +61,29 @@ export const createShipmentSchema = z
     path: ['arriveePrevueLe'],
   });
 
+/**
+ * Modification d'une expédition en cours : mise à jour partielle (PATCH).
+ *
+ * Chaque bloc (expéditeur, destinataire, colis) est envoyé en entier par le
+ * formulaire et remplace l'ancien : effacer un champ facultatif (email,
+ * dimensions...) le retire donc bel et bien de la base. Le numéro de suivi n'est
+ * pas modifiable, et les deux dates restent gérées par `/schedule` — toute clé
+ * inconnue est écartée par Zod.
+ */
+export const updateShipmentSchema = z
+  .object({
+    sender: party.optional(),
+    recipient: party.optional(),
+    parcel: parcel.optional(),
+    service: z.enum(SERVICE_TYPES).optional(),
+    // Contrairement aux autres champs facultatifs, la chaîne vide est conservée :
+    // c'est elle qui permet de vider les notes.
+    internalNotes: z.string().trim().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Aucune modification à enregistrer',
+  });
+
 /** Correction des deux dates qui pilotent la progression. */
 export const scheduleSchema = z.object({
   demarreLe: z.coerce.date().optional(),

@@ -121,6 +121,31 @@ function pushEvent(shipment, status, note) {
   });
 }
 
+/**
+ * Corrige les informations d'une expédition en cours (parties, colis, service,
+ * notes). Une expédition livrée ou annulée est close : on ne la réécrit plus.
+ *
+ * Aucun événement n'est ajouté à l'historique : celui-ci est lu par le client
+ * sur la page publique, et une simple correction (faute de frappe, code postal)
+ * n'a pas à y apparaître comme une étape de livraison.
+ */
+export async function updateShipment(id, changes) {
+  const shipment = await getShipmentById(id);
+  if (shipment.deliveredAt) throw ApiError.badRequest('Ce colis est déjà livré : il ne peut plus être modifié');
+  if (shipment.cancelledAt) throw ApiError.badRequest('Ce colis est annulé : il ne peut plus être modifié');
+
+  const { sender, recipient, parcel, service, internalNotes } = changes;
+
+  if (sender) shipment.sender = sender;
+  if (recipient) shipment.recipient = recipient;
+  if (parcel) shipment.parcel = parcel;
+  if (service) shipment.service = service;
+  if (internalNotes !== undefined) shipment.internalNotes = internalNotes || undefined;
+
+  await shipment.save();
+  return shipment;
+}
+
 /** Corrige les deux dates qui pilotent toute la progression. */
 export async function updateSchedule(id, { demarreLe, arriveePrevueLe }) {
   const shipment = await getShipmentById(id);

@@ -90,9 +90,28 @@ export const scheduleSchema = z.object({
   arriveePrevueLe: z.coerce.date().optional(),
 });
 
-/** Note libre accompagnant une action de l'agence (pause, reprise, livraison...). */
+/** Note libre accompagnant une action de l'agence (reprise, livraison, annulation). */
 export const agencyActionSchema = z.object({
   note: optionalString,
+});
+
+/**
+ * Mise en pause : contrairement aux autres actions, la raison n'est pas
+ * facultative. Le visiteur la lira sur sa page de suivi à la place du message
+ * générique, elle doit donc dire quelque chose de réel.
+ */
+export const pauseShipmentSchema = z.object({
+  // Le préprocesseur ramène un champ absent à une chaîne vide : sans lui, Zod
+  // rejette un `reason` manquant avec son message générique de type
+  // (« expected string, received undefined ») avant même d'atteindre `.min()`.
+  reason: z.preprocess(
+    (value) => (typeof value === 'string' ? value : ''),
+    z
+      .string()
+      .trim()
+      .min(3, 'Indiquez la raison de la mise en pause (3 caractères minimum)')
+      .max(500, 'La raison ne peut pas dépasser 500 caractères'),
+  ),
 });
 
 export const listShipmentsSchema = z.object({

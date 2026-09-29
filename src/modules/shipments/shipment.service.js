@@ -161,15 +161,20 @@ export async function updateSchedule(id, { demarreLe, arriveePrevueLe }) {
  * Met la livraison en pause. L'instant est mémorisé : au moment de la reprise,
  * la durée écoulée pendant la pause est ajoutée au cumul et ne compte donc
  * jamais dans la progression.
+ *
+ * La raison est obligatoire (validée en amont par `pauseShipmentSchema`) : elle
+ * remplace le message générique sur la page de suivi publique, donc un simple
+ * « en pause » sans explication n'a pas de sens ici.
  */
-export async function pauseShipment(id, note) {
+export async function pauseShipment(id, reason) {
   const shipment = await getShipmentById(id);
   if (shipment.deliveredAt) throw ApiError.badRequest('Ce colis est déjà livré');
   if (shipment.progression.enPause) throw ApiError.badRequest('Ce colis est déjà en pause');
 
   shipment.progression.enPause = true;
   shipment.progression.pauseeLe = new Date();
-  pushEvent(shipment, 'on_hold', note || 'Livraison mise en pause par SafePoste.');
+  shipment.progression.raisonPause = reason;
+  pushEvent(shipment, 'on_hold', reason);
 
   await shipment.save();
   return shipment;
@@ -183,6 +188,8 @@ export async function resumeShipment(id, note) {
   shipment.progression.cumulPauseMs += Math.max(0, pausedFor);
   shipment.progression.enPause = false;
   shipment.progression.pauseeLe = undefined;
+  // Effacée pour qu'une pause future n'affiche jamais par erreur un ancien motif.
+  shipment.progression.raisonPause = undefined;
 
   pushEvent(shipment, shipment.progressionActuelle().etape, note || 'La livraison reprend son cours.');
 

@@ -29,7 +29,7 @@ export const updateScheduleController = asyncHandler(async (req, res) => {
 });
 
 export const pauseController = asyncHandler(async (req, res) => {
-  const shipment = await service.pauseShipment(req.params.id, req.body.note);
+  const shipment = await service.pauseShipment(req.params.id, req.body.reason);
   res.json({ success: true, data: shipment });
 });
 

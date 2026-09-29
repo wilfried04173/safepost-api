@@ -43,6 +43,10 @@ const progressionSchema = new mongoose.Schema(
     arriveePrevueLe: { type: Date },
     enPause: { type: Boolean, default: false },
     pauseeLe: { type: Date },
+    // Raison saisie par l'agence au moment de la pause - affichée sur la page de
+    // suivi publique à la place du message générique. Effacée à la reprise pour
+    // qu'une pause ultérieure ne réutilise jamais un motif obsolète.
+    raisonPause: { type: String, trim: true },
     cumulPauseMs: { type: Number, default: 0, min: 0 },
   },
   { _id: false },
@@ -136,6 +140,7 @@ shipmentSchema.methods.toPublicJSON = function toPublicJSON() {
       arriveePrevueLe: this.progression?.arriveePrevueLe,
       enPause: this.progression?.enPause ?? false,
       pauseeLe: this.progression?.pauseeLe,
+      raisonPause: this.progression?.raisonPause,
       cumulPauseMs: this.progression?.cumulPauseMs ?? 0,
       pourcentage: progression.pourcentage,
     },

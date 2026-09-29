@@ -19,6 +19,7 @@ import {
   agencyActionSchema,
   createShipmentSchema,
   listShipmentsSchema,
+  pauseShipmentSchema,
   scheduleSchema,
   trackingIdSchema,
   updateShipmentSchema,
@@ -45,7 +46,7 @@ shipmentRouter
 
 // Les quatre seules actions manuelles : le reste de la progression suit l'horloge.
 shipmentRouter.patch('/:id/schedule', validate(scheduleSchema), updateScheduleController);
-shipmentRouter.post('/:id/pause', validate(agencyActionSchema), pauseController);
+shipmentRouter.post('/:id/pause', validate(pauseShipmentSchema), pauseController);
 shipmentRouter.post('/:id/resume', validate(agencyActionSchema), resumeController);
 shipmentRouter.post('/:id/deliver', validate(agencyActionSchema), deliverController);
 shipmentRouter.post('/:id/cancel', validate(agencyActionSchema), cancelController);

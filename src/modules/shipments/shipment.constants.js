@@ -28,6 +28,6 @@ export const SERVICE_TYPES = ['standard', 'express', 'custom'];
 
 export const SERVICE_LABELS = {
   standard: 'Livraison standard',
-  express: 'Livraison flash',
+  express: 'Livraison express',
   custom: 'Livraison personnalisée (sur mesure)',
 };

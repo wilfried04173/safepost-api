@@ -63,6 +63,18 @@ const eventSchema = new mongoose.Schema(
   { _id: true },
 );
 
+/**
+ * Métadonnées d'une photo du colis. L'image elle-même est dans la collection
+ * `ParcelPhoto` (même `_id`) : voir `photo.model.js`.
+ */
+const photoSchema = new mongoose.Schema(
+  {
+    contentType: { type: String, required: true },
+    size: { type: Number, required: true, min: 0 },
+  },
+  { _id: true },
+);
+
 const shipmentSchema = new mongoose.Schema(
   {
     trackingId: {
@@ -77,6 +89,8 @@ const shipmentSchema = new mongoose.Schema(
     sender: { type: partySchema, required: true },
     recipient: { type: partySchema, required: true },
     parcel: { type: parcelSchema, required: true },
+    // Une ou deux photos du colis, ajoutées par l'agence, visibles sur la page de suivi.
+    photos: { type: [photoSchema], default: [] },
 
     progression: { type: progressionSchema, default: () => ({}) },
 
@@ -155,6 +169,8 @@ shipmentSchema.methods.toPublicJSON = function toPublicJSON() {
       widthCm: this.parcel.widthCm,
       heightCm: this.parcel.heightCm,
     },
+    // Seulement les identifiants : le navigateur construit l'URL de chaque image.
+    photos: (this.photos || []).map((photo) => ({ id: photo._id })),
     estimatedDeliveryDate: this.progression?.arriveePrevueLe,
     deliveredAt: this.deliveredAt,
     cancelledAt: this.cancelledAt,

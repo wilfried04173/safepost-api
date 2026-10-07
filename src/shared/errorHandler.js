@@ -18,6 +18,9 @@ export function errorHandler(err, _req, res, _next) {
   } else if (err.name === 'CastError') {
     statusCode = 400;
     message = `Valeur invalide pour « ${err.path} »`;
+  } else if (err.type === 'entity.too.large') {
+    statusCode = 413;
+    message = 'Le fichier envoyé est trop volumineux.';
   } else if (err.code === 11000) {
     statusCode = 409;
     message = `Valeur déjà utilisée pour ${Object.keys(err.keyValue).join(', ')}`;

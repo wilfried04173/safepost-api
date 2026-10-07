@@ -1,6 +1,7 @@
 import { customAlphabet } from 'nanoid';
 import { ApiError } from '../../shared/ApiError.js';
 import { STATUS_LABELS } from './shipment.constants.js';
+import { ParcelPhoto } from './photo.model.js';
 import { Shipment } from './shipment.model.js';
 
 /** Échappe la saisie utilisateur pour pouvoir l'utiliser littéralement dans une RegExp. */
@@ -224,6 +225,8 @@ export async function cancelShipment(id, note) {
 export async function deleteShipment(id) {
   const deleted = await Shipment.findByIdAndDelete(id);
   if (!deleted) throw ApiError.notFound('Colis introuvable');
+  // Les images vivent dans une autre collection : sans ça, elles resteraient orphelines.
+  await ParcelPhoto.deleteMany({ shipment: deleted._id });
   return deleted;
 }
 

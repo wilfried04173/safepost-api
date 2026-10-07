@@ -129,3 +129,8 @@ export const trackingIdSchema = z.object({
     .min(6, 'Un numéro de suivi comporte au moins 6 caractères')
     .max(30),
 });
+
+/** URL publique d'une photo : le numéro de suivi ET l'identifiant de la photo (sinon Zod retirerait ce dernier). */
+export const publicPhotoParamsSchema = trackingIdSchema.extend({
+  photoId: z.string().trim().min(1).max(40),
+});

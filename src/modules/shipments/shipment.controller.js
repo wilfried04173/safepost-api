@@ -1,4 +1,6 @@
 import { asyncHandler } from '../../shared/asyncHandler.js';
+import { ApiError } from '../../shared/ApiError.js';
+import * as photos from './photo.service.js';
 import * as service from './shipment.service.js';
 
 export const createShipmentController = asyncHandler(async (req, res) => {
@@ -56,6 +58,40 @@ export const deleteShipmentController = asyncHandler(async (req, res) => {
 export const statsController = asyncHandler(async (_req, res) => {
   const stats = await service.getShipmentStats();
   res.json({ success: true, data: stats });
+});
+
+/** Ajoute une photo : le corps de la requête EST l'image (octets bruts, pas du JSON). */
+export const addPhotoController = asyncHandler(async (req, res) => {
+  // `express.raw` ne remplit le corps que pour les types d'image acceptés ; sinon
+  // `req.body` reste un objet vide.
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    throw ApiError.badRequest('Envoyez une image JPEG, PNG ou WebP.');
+  }
+  const shipment = await photos.addPhoto(req.params.id, req.body);
+  res.status(201).json({ success: true, data: shipment });
+});
+
+export const removePhotoController = asyncHandler(async (req, res) => {
+  const shipment = await photos.removePhoto(req.params.id, req.params.photoId);
+  res.json({ success: true, data: shipment });
+});
+
+/**
+ * Endpoint public : sert l'image d'une photo de colis.
+ *
+ * L'identifiant d'une photo ne change jamais (une photo remplacée reçoit un
+ * nouvel identifiant), donc le navigateur peut la garder indéfiniment en cache.
+ */
+export const publicPhotoController = asyncHandler(async (req, res) => {
+  const photo = await photos.getPublicPhoto(req.params.trackingId, req.params.photoId);
+  res.set({
+    'Content-Type': photo.contentType,
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    // Helmet interdit par défaut qu'une autre origine charge cette ressource ; or le
+    // site (safeposte.com) affiche l'image servie par l'API (api.safeposte.com).
+    'Cross-Origin-Resource-Policy': 'cross-origin',
+  });
+  res.send(photo.data);
 });
 
 /** Endpoint public : ne renvoie que la projection masquée, sans donnée sensible. */

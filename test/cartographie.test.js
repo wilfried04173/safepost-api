@@ -5,7 +5,7 @@ import { afterEach, test } from 'node:test';
 process.env.MONGODB_URI ||= 'mongodb://127.0.0.1:1/test';
 process.env.JWT_SECRET ||= 'test';
 
-const { adresseModifiee, calculerCarte } = await import('../src/shared/cartographie.js');
+const { adresseModifiee, calculerCarte, decoderPolyline } = await import('../src/shared/cartographie.js');
 
 const fetchOriginal = globalThis.fetch;
 afterEach(() => {
@@ -27,10 +27,34 @@ function simuler({ nominatim, osrm }) {
   return appels;
 }
 
+/** Encode des points [lat, lon] en polyligne précision 6 (format renvoyé par OSRM). */
+function encoder(points) {
+  let sortie = '';
+  let precLat = 0;
+  let precLon = 0;
+  const ecrire = (valeur) => {
+    let v = valeur < 0 ? ~(valeur << 1) : valeur << 1;
+    while (v >= 0x20) {
+      sortie += String.fromCharCode((0x20 | (v & 0x1f)) + 63);
+      v >>= 5;
+    }
+    sortie += String.fromCharCode(v + 63);
+  };
+  for (const [lat, lon] of points) {
+    const la = Math.round(lat * 1e6);
+    const lo = Math.round(lon * 1e6);
+    ecrire(la - precLat);
+    ecrire(lo - precLon);
+    precLat = la;
+    precLon = lo;
+  }
+  return sortie;
+}
+
 const lieu = (lat, lon, postcode) => ({ lat: String(lat), lon: String(lon), address: { postcode } });
 const osrmOk = {
   code: 'Ok',
-  routes: [{ distance: 465123.4, geometry: { coordinates: [[2.35, 48.85], [3.1, 47.9], [4.83, 45.76]] } }],
+  routes: [{ distance: 465123.4, geometry: encoder([[48.85, 2.35], [47.9, 3.1], [45.76, 4.83]]) }],
 };
 
 test('adresse complète trouvée : itinéraire routier, coordonnées converties en [lat, lon]', { timeout: 20_000 }, async () => {
@@ -84,7 +108,7 @@ test('extrémité collée loin de la route (hors couverture OSRM) : ligne direct
     osrm: {
       code: 'Ok',
       waypoints: [{ distance: 6 }, { distance: 5_529_250 }],
-      routes: [{ distance: 2_119_000, geometry: { coordinates: [[4.4, 51.22], [-9.5, 38.78]] } }],
+      routes: [{ distance: 2_119_000, geometry: encoder([[51.22, 4.4], [38.78, -9.5]]) }],
     },
   });
   const carte = await calculerCarte(
@@ -132,6 +156,28 @@ test('coupure réseau passagère : une seconde tentative suffit', { timeout: 20_
   const carte = await calculerCarte({ city: 'Paris', country: 'France' }, { city: 'Lyon', country: 'France' });
   assert.equal(carte.echec, undefined);
   assert.equal(carte.mode, 'route');
+});
+
+test('decoderPolyline : décode la polyligne précision 6 en [lat, lon]', () => {
+  const points = [[48.390045, -4.485943], [49.443026, 1.093896], [-33.86, 151.21]];
+  assert.deepEqual(decoderPolyline(encoder(points)), points);
+});
+
+test('recherche libre : un pays saisi dans le champ ville est quand même retrouvé', { timeout: 30_000 }, async () => {
+  simuler({
+    nominatim: (p) => {
+      if (p.q) return lieu(50.85, 4.35, '1000');
+      if (p.city === 'Belgique') return null;
+      return lieu(48.85, 2.35, '75001');
+    },
+    osrm: osrmOk,
+  });
+  const carte = await calculerCarte(
+    { addressLine: 'Rue Neuve 1', postalCode: '1000', city: 'Belgique', country: 'Belgique' },
+    { addressLine: '1 rue de Rivoli', postalCode: '75001', city: 'Paris', country: 'France' },
+  );
+  assert.equal(carte.echec, undefined);
+  assert.equal(carte.depart.lat, 50.85);
 });
 
 test('adresseModifiee : un changement de nom ne compte pas, un changement de ville oui', () => {

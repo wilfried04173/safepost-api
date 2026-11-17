@@ -17,7 +17,11 @@ import { arcDirect, arrondirTrace, distanceM, simplifierTrace } from './domaine/
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
-const DELAI_MS = 15_000;
+const DELAI_MS = 20_000;
+// Un long trajet peut peser plusieurs dizaines de Ko : sur une connexion lente, son
+// téléchargement dépasse vite 20 s. Le délai couvre la réponse ENTIÈRE, pas seulement
+// ses en-têtes.
+const DELAI_OSRM_MS = 45_000;
 const ESPACEMENT_NOMINATIM_MS = 1_100;
 const TOLERANCE_SIMPLIFICATION_M = 50;
 // Au-delà, le tracé est re-simplifié avec une tolérance plus large (trajets très longs).
@@ -37,20 +41,64 @@ async function attendreLeTourNominatim() {
 }
 
 /**
- * fetch avec une seconde tentative en cas de délai dépassé ou de coupure réseau : ces
- * services gratuits ont parfois une réponse lente isolée. `avant` s'exécute avant
- * chaque tentative (espacement imposé par Nominatim).
+ * Requête HTTP renvoyant `{ ok, status, donnees }` (donnees = JSON lu, ou null).
+ *
+ * Le corps est lu DANS la même tentative et sous le même délai que la requête : une
+ * réponse dont le téléchargement est coupé compte comme un délai dépassé, et déclenche
+ * une seconde tentative (ces services gratuits ont parfois une réponse lente isolée).
+ * `avant` s'exécute avant chaque tentative (espacement imposé par Nominatim).
  */
-async function fetchAvecRelance(url, options, avant = async () => {}) {
+async function requeteJson(url, options, { avant = async () => {}, delaiMs = DELAI_MS } = {}) {
   for (let tentative = 1; ; tentative += 1) {
     await avant();
     try {
-      return await fetch(url, { ...options, signal: AbortSignal.timeout(DELAI_MS) });
+      const reponse = await fetch(url, { ...options, signal: AbortSignal.timeout(delaiMs) });
+      const corps = await reponse.text();
+      let donnees = null;
+      try {
+        donnees = JSON.parse(corps);
+      } catch {
+        /* réponse qui n'est pas du JSON (page d'erreur) : donnees reste null */
+      }
+      return { ok: reponse.ok, status: reponse.status, donnees };
     } catch (error) {
-      const passager = error?.name === 'TimeoutError' || error?.name === 'TypeError';
+      const passager = ['TimeoutError', 'AbortError', 'TypeError'].includes(error?.name);
       if (!passager || tentative >= 2) throw error;
     }
   }
+}
+
+/**
+ * Décode une polyligne encodée (format Google, précision 6) en points `[lat, lon]`.
+ * OSRM la renvoie avec `geometries=polyline6` : environ 8 fois plus léger que le GeoJSON,
+ * et déjà dans l'ordre latitude, longitude.
+ */
+export function decoderPolyline(chaine, precision = 6) {
+  const facteur = 10 ** precision;
+  const points = [];
+  let index = 0;
+  let lat = 0;
+  let lon = 0;
+
+  const lireValeur = () => {
+    let resultat = 0;
+    let decalage = 0;
+    let octet;
+    do {
+      octet = chaine.charCodeAt(index) - 63;
+      index += 1;
+      resultat |= (octet & 0x1f) << decalage;
+      decalage += 5;
+    } while (octet >= 0x20);
+    return resultat & 1 ? ~(resultat >> 1) : resultat >> 1;
+  };
+
+  while (index < chaine.length) {
+    lat += lireValeur();
+    lon += lireValeur();
+    points.push([lat / facteur, lon / facteur]);
+  }
+  return points;
 }
 
 const normaliserCodePostal = (valeur) => String(valeur || '').replace(/\s+/g, '').toUpperCase();
@@ -67,8 +115,13 @@ function variantesDeRecherche(partie) {
   const cp = partie.postalCode?.trim();
   const rue = partie.addressLine?.trim();
 
+  // Recherche libre : retrouve souvent une adresse quand un champ a été mal rempli
+  // (le pays saisi dans le champ ville, par exemple). Contrôlée comme une requête dégradée.
+  const texteLibre = [rue, cp, ville, pays].filter(Boolean).join(', ');
+
   const variantes = [
     { street: rue, city: ville, postalcode: cp, country: pays, degradee: false },
+    { q: texteLibre, degradee: true },
     { city: ville, postalcode: cp, country: pays, degradee: true },
     { city: ville, country: pays, degradee: true },
     { postalcode: cp, country: pays, degradee: true },
@@ -78,7 +131,7 @@ function variantesDeRecherche(partie) {
   const vues = new Set();
   return variantes
     .map((variante) => Object.fromEntries(Object.entries(variante).filter(([, valeur]) => valeur !== undefined && valeur !== '')))
-    .filter((variante) => variante.city || variante.postalcode || variante.street)
+    .filter((variante) => variante.city || variante.postalcode || variante.street || variante.q)
     .filter((variante) => {
       const cle = JSON.stringify({ ...variante, degradee: undefined });
       if (vues.has(cle)) return false;
@@ -89,18 +142,18 @@ function variantesDeRecherche(partie) {
 
 async function rechercherNominatim(variante) {
   const params = new URLSearchParams({ format: 'jsonv2', limit: '1', addressdetails: '1' });
-  for (const champ of ['street', 'city', 'postalcode', 'country']) {
+  // Nominatim refuse de combiner la recherche libre (`q`) et les champs structurés.
+  for (const champ of variante.q ? ['q'] : ['street', 'city', 'postalcode', 'country']) {
     if (variante[champ]) params.set(champ, variante[champ]);
   }
 
-  const reponse = await fetchAvecRelance(
+  const { ok, status, donnees } = await requeteJson(
     `${NOMINATIM_URL}?${params}`,
     { headers: { 'User-Agent': env.cartoUserAgent, 'Accept-Language': 'fr,en' } },
-    attendreLeTourNominatim,
+    { avant: attendreLeTourNominatim },
   );
-  if (!reponse.ok) throw new Error(`Nominatim HTTP ${reponse.status}`);
-  const resultats = await reponse.json();
-  return resultats[0] || null;
+  if (!ok || !Array.isArray(donnees)) throw new Error(`Nominatim HTTP ${status}`);
+  return donnees[0] || null;
 }
 
 /**
@@ -136,25 +189,26 @@ async function geocoder(partie) {
 
 /**
  * Itinéraire routier entre deux points, ou `null` s'il n'en existe pas (mer entre les
- * deux, par exemple). OSRM attend `longitude,latitude` et renvoie du GeoJSON au même
- * ordre : on convertit en `[lat, lon]` ici, une seule fois.
+ * deux, par exemple). Attention à l'ordre : l'URL d'OSRM attend `longitude,latitude`,
+ * alors que la polyligne renvoyée se décode en `[lat, lon]`.
  */
 async function itineraireRoutier(depart, destination) {
   const coords = `${depart.lon},${depart.lat};${destination.lon},${destination.lat}`;
-  const reponse = await fetchAvecRelance(`${OSRM_URL}/${coords}?overview=full&geometries=geojson`, {
-    headers: { 'User-Agent': env.cartoUserAgent },
-  });
+  const { ok, status, donnees } = await requeteJson(
+    `${OSRM_URL}/${coords}?overview=full&geometries=polyline6`,
+    { headers: { 'User-Agent': env.cartoUserAgent } },
+    { delaiMs: DELAI_OSRM_MS },
+  );
 
-  const donnees = await reponse.json().catch(() => null);
   if (donnees?.code === 'NoRoute') return null;
-  if (!reponse.ok || donnees?.code !== 'Ok' || !donnees.routes?.length) {
-    throw new Error(`OSRM ${donnees?.code || `HTTP ${reponse.status}`}`);
+  if (!ok || donnees?.code !== 'Ok' || !donnees.routes?.length) {
+    throw new Error(`OSRM ${donnees?.code || `HTTP ${status}`}`);
   }
 
   if (donnees.waypoints?.some((point) => point.distance > DECALAGE_MAX_M)) return null;
 
   const route = donnees.routes[0];
-  const points = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+  const points = decoderPolyline(route.geometry);
 
   // Tracé complet (`overview=full`) simplifié ici à 50 m près : quelques Ko au lieu
   // de plusieurs dizaines, sans couper les virages comme `overview=simplified`.

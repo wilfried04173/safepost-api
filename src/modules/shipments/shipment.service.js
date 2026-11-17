@@ -1,6 +1,7 @@
 import { customAlphabet } from 'nanoid';
 import { ApiError } from '../../shared/ApiError.js';
 import { STATUS_LABELS } from './shipment.constants.js';
+import { adresseModifiee, calculerCarte } from '../../shared/cartographie.js';
 import { ParcelPhoto } from './photo.model.js';
 import { Shipment } from './shipment.model.js';
 
@@ -29,8 +30,13 @@ export async function createShipment(payload, adminId) {
 
   const { demarreLe, arriveePrevueLe, ...rest } = payload;
 
+  // Géocodage + itinéraire, une seule fois, avant l'enregistrement. Ne lève jamais :
+  // une adresse introuvable donne une expédition sans carte, pas une erreur.
+  const carte = await calculerCarte(payload.sender, payload.recipient);
+
   const shipment = await Shipment.create({
     ...rest,
+    carte,
     trackingId,
     createdBy: adminId,
     // À la création, seules les deux dates comptent : tout le reste de la
@@ -137,11 +143,18 @@ export async function updateShipment(id, changes) {
 
   const { sender, recipient, parcel, service, internalNotes } = changes;
 
+  // La carte ne se recalcule que si une adresse change : corriger un nom ne doit pas
+  // relancer deux appels à des services limités en débit.
+  const trajetModifie =
+    adresseModifiee(shipment.sender, sender) || adresseModifiee(shipment.recipient, recipient);
+
   if (sender) shipment.sender = sender;
   if (recipient) shipment.recipient = recipient;
   if (parcel) shipment.parcel = parcel;
   if (service) shipment.service = service;
   if (internalNotes !== undefined) shipment.internalNotes = internalNotes || undefined;
+
+  if (trajetModifie) shipment.carte = await calculerCarte(shipment.sender, shipment.recipient);
 
   await shipment.save();
   return shipment;

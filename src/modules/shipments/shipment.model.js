@@ -75,6 +75,38 @@ const photoSchema = new mongoose.Schema(
   { _id: true },
 );
 
+/** Un point géocodé : coordonnées + libellé lisible (ville, pays). */
+const pointSchema = new mongoose.Schema(
+  {
+    lat: { type: Number, required: true },
+    lon: { type: Number, required: true },
+    libelle: { type: String, trim: true },
+  },
+  { _id: false },
+);
+
+/**
+ * Carte de l'expédition, calculée par l'API (OpenStreetMap : Nominatim + OSRM) à la
+ * création et quand une adresse change - voir `shared/cartographie.js`. Rangée à la
+ * racine du document : la correction d'une expédition remplace `sender`, `recipient`
+ * et `parcel` en entier, un champ placé dedans disparaîtrait à la première correction.
+ */
+const carteSchema = new mongoose.Schema(
+  {
+    depart: { type: pointSchema },
+    destination: { type: pointSchema },
+    // [[lat, lon], ...], simplifié à 50 m près : quelques kilo-octets.
+    trace: { type: [[Number]], default: undefined },
+    distanceM: { type: Number, min: 0 },
+    // 'route' : itinéraire routier ; 'direct' : ligne droite (pas de route possible).
+    mode: { type: String, enum: ['route', 'direct'] },
+    calculeLe: { type: Date },
+    // Renseigné quand le calcul n'a pas abouti. Jamais exposé publiquement.
+    echec: { type: String, trim: true },
+  },
+  { _id: false },
+);
+
 const shipmentSchema = new mongoose.Schema(
   {
     trackingId: {
@@ -91,6 +123,7 @@ const shipmentSchema = new mongoose.Schema(
     parcel: { type: parcelSchema, required: true },
     // Une ou deux photos du colis, ajoutées par l'agence, visibles sur la page de suivi.
     photos: { type: [photoSchema], default: [] },
+    carte: { type: carteSchema },
 
     progression: { type: progressionSchema, default: () => ({}) },
 
@@ -171,6 +204,17 @@ shipmentSchema.methods.toPublicJSON = function toPublicJSON() {
     },
     // Seulement les identifiants : le navigateur construit l'URL de chaque image.
     photos: (this.photos || []).map((photo) => ({ id: photo._id })),
+    // Seulement ce que la carte affiche : ni `echec` (nomme un service tiers et une
+    // adresse mal saisie), ni `calculeLe`. `null` quand il n'y a pas de tracé.
+    carte:
+      this.carte?.trace?.length >= 2
+        ? {
+            depart: this.carte.depart,
+            destination: this.carte.destination,
+            trace: this.carte.trace,
+            distanceM: this.carte.distanceM,
+          }
+        : null,
     estimatedDeliveryDate: this.progression?.arriveePrevueLe,
     deliveredAt: this.deliveredAt,
     cancelledAt: this.cancelledAt,

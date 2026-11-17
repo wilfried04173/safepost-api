@@ -18,7 +18,7 @@ const optionalEmail = z
     message: 'Adresse email invalide',
   });
 
-// Aucune coordonnée : Google Maps calcule l'itinéraire depuis les adresses.
+// Aucune coordonnée à saisir : l'API géocode les adresses (OpenStreetMap) à l'enregistrement.
 const party = z.object({
   fullName: z.string().trim().min(2, 'Le nom complet est requis'),
   email: optionalEmail,

@@ -30,6 +30,9 @@ export const env = {
     pass: process.env.SMTP_PASS,
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
   },
+  // Identification exigée par Nominatim (OpenStreetMap) : sans elle, les requêtes de
+  // géocodage sont refusées. Nom de l'application + adresse du site.
+  cartoUserAgent: process.env.CARTO_USER_AGENT || 'SafePoste/1.0 (+https://safeposte.com)',
   // Destinataire fixe du mot de passe régénéré - un seul compte admin existe,
   // pas besoin de le faire dépendre de l'email du compte lui-même.
   passwordResetEmail: process.env.PASSWORD_RESET_EMAIL || 'tchoumenestive@gmail.com',

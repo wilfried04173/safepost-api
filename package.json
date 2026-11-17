@@ -8,7 +8,9 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "seed:admin": "node seed/seedAdmin.js"
+    "seed:admin": "node seed/seedAdmin.js",
+    "test": "node --test",
+    "maps:backfill": "node seed/backfillCartes.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
